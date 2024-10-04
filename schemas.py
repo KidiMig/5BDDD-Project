@@ -51,7 +51,7 @@ class Livre(BaseModel):
     disponibilite: Optional[bool] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class EmpruntCreate(BaseModel):
     id_livre: int

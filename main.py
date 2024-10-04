@@ -78,6 +78,7 @@ def create_utilisateur(user: schemas.UtilisateurCreate, db: Session = Depends(ge
 def create_livre(livre: schemas.LivreCreate, db: Session = Depends(get_db)):
     return crud.create_livre(db=db, livre=livre)
 
+# Mettre a jour un livre
 @app.put("/livres/{livre_id}", response_model=schemas.Livre)
 def update_livre(livre_id: int, livre: schemas.LivreUpdate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
     db_livre = crud.get_livre_by_id(db, livre_id=livre_id)
@@ -85,9 +86,33 @@ def update_livre(livre_id: int, livre: schemas.LivreUpdate, db: Session = Depend
         raise HTTPException(status_code=404, detail="Livre not found")
     return crud.update_livre(db=db, livre_id=livre_id, livre=livre)
 
+# Retourner un livre
+@app.post("/retour-livre/{id_emprunt}")
+def return_livre(id_emprunt: int, db: Session = Depends(get_db), current_user: models.Utilisateur = Depends(get_current_user)):
+    return crud.return_livre(db=db, emprunt_id=id_emprunt, user_id=current_user.id_utilisateur)
+
+# Recherche de livre
 @app.get("/livres/search", response_model=List[schemas.Livre])
 def search_livres(titre: Optional[str] = None, auteur: Optional[str] = None, genre: Optional[str] = None, db: Session = Depends(get_db)):
     return crud.search_livres(db=db, titre=titre, auteur=auteur, genre=genre)
+
+@app.get("/livres/{id_livre}", response_model=schemas.LivreRead)
+def get_livre(id_livre: int, db: Session = Depends(get_db)):
+    """
+    Récupérer les détails d'un livre spécifique à partir de son id
+    """
+    livre = db.query(models.Livre).filter(models.Livre.id_livre == id_livre).first()
+
+    if not livre:
+        raise HTTPException(status_code=404, detail="Livre non trouvé")
+
+    return livre
+
+@app.delete("/livres/{livre_id}")
+def delete_livre(livre_id: int, current_user: Utilisateur = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+    return crud.delete_livre(db=db, livre_id=livre_id)
 
 # Endpoints pour les emprunts
 # Créer un emprunt
@@ -100,12 +125,20 @@ def create_emprunt(emprunt: schemas.EmpruntCreate, db: Session = Depends(get_db)
 def get_emprunts_by_user(db: Session = Depends(get_db), current_user: models.Utilisateur = Depends(get_current_user)):
     return crud.get_emprunts_by_user(db=db, user_id=current_user.id_utilisateur)
 
-# Retourner un livre
-@app.post("/retour-livre/{id_emprunt}")
-def return_livre(id_emprunt: int, db: Session = Depends(get_db), current_user: models.Utilisateur = Depends(get_current_user)):
-    return crud.return_livre(db=db, emprunt_id=id_emprunt, user_id=current_user.id_utilisateur)
-
 # Historique des emprunts des utilisateurs
 @app.get("/historique-emprunts/", response_model=List[schemas.EmpruntRead])
 def get_historique_emprunts(db: Session = Depends(get_db), current_user: models.Utilisateur = Depends(get_current_user)):
     return crud.get_historique_emprunts(db=db, user_id=current_user.id_utilisateur)
+
+@app.get("/emprunts-actuels/", response_model=List[schemas.EmpruntRead])
+def get_emprunts_actuels(db: Session = Depends(get_db), current_user: models.Utilisateur = Depends(get_current_user)):
+    
+    emprunts = db.query(models.Emprunt).filter(
+        models.Emprunt.id_utilisateur == current_user.id_utilisateur,
+        models.Emprunt.date_retour == None  
+    ).all()
+
+    if not emprunts:
+        raise HTTPException(status_code=404, detail="Aucun emprunt en cours.")
+
+    return emprunts
