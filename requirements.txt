@@ -1,0 +1,20 @@
+fastapi[standard]
+python-dotenv
+
+pydantic[email,timezone]
+
+# Oracle
+oracledb
+
+#SqlAlchemy
+sqlalchemy
+
+alembic
+
+bcrypt
+
+python-jose[cryptography]
+
+
+# Pour les tests
+pytest
